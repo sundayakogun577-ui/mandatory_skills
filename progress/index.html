@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Lecture Time Manager</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #eef2f7;
+    color: #172033;
+}
+
+header {
+    background: #123b70;
+    color: white;
+    text-align: center;
+    padding: 22px 10px;
+}
+
+header h1 {
+    margin: 0 0 8px;
+}
+
+.container {
+    max-width: 750px;
+    margin: 25px auto;
+    padding: 15px;
+}
+
+.card {
+    background: white;
+    padding: 22px;
+    margin-bottom: 18px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px #0001;
+}
+
+h2 {
+    color: #123b70;
+    margin-top: 0;
+}
+
+label {
+    display: block;
+    margin-top: 12px;
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin-top: 6px;
+    border: 1px solid #ccd3df;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+button {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    margin: 8px 5px 0 0;
+    background: #1769aa;
+    color: white;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+.stop {
+    background: #b42318;
+}
+
+.timer {
+    text-align: center;
+    font-size: 48px;
+    font-weight: bold;
+    color: #1769aa;
+    margin: 20px 0;
+}
+
+.status {
+    text-align: center;
+    font-weight: bold;
+    padding: 12px;
+    background: #e3f3e8;
+    border-radius: 6px;
+}
+
+.notice {
+    background: #fff0cc;
+    color: #774b00;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 15px;
+    line-height: 1.6;
+}
+
+.next {
+    background: #e7efff;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 15px;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    color: #586174;
+}
+
+@media (max-width: 480px) {
+    .timer {
+        font-size: 38px;
+    }
+
+    .card {
+        padding: 16px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Smart Lecture Time Manager</h1>
+    <p>Manage lecture periods and classroom handovers</p>
+</header>
+
+<main class="container">
+
+    <section class="card">
+        <h2>Lecture Details</h2>
+
+        <label for="lecturer">Current Lecturer</label>
+        <input id="lecturer" placeholder="e.g. Mr. John">
+
+        <label for="course">Course Name</label>
+        <input id="course" placeholder="e.g. Web Development">
+
+        <label for="nextLecturer">Next Lecturer</label>
+        <input id="nextLecturer" placeholder="e.g. Mrs. Grace">
+
+        <label for="nextCourse">Next Course</label>
+        <input id="nextCourse" placeholder="e.g. Database Systems">
+
+        <label for="minutes">Lecture Duration (minutes)</label>
+        <input id="minutes" type="number" min="1" max="600" value="50">
+
+        <button id="start">Start Lecture</button>
+        <button id="pause">Pause</button>
+        <button id="reset" class="stop">Reset</button>
+    </section>
+
+    <section class="card">
+        <h2>Lecture Countdown</h2>
+
+        <div class="timer" id="timer">50:00</div>
+
+        <div class="status" id="status" aria-live="polite">
+            Ready to start
+        </div>
+
+        <div class="notice" id="notice" aria-live="polite">
+            The system will warn you when 5 minutes remain.
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Next Lecture</h2>
+
+        <div class="next">
+            <p><strong>Lecturer:</strong>
+            <span id="showNextLecturer">Not set</span></p>
+
+            <p><strong>Course:</strong>
+            <span id="showNextCourse">Not set</span></p>
+
+            <p id="handover">Waiting for the current lecture to finish.</p>
+        </div>
+
+        <button id="notify">Test Handover Alert</button>
+    </section>
+
+</main>
+
+<footer>
+    Smart Lecture Time Manager | Mini Project
+</footer>
+
+<script>
+const lecturer = document.getElementById("lecturer");
+const course = document.getElementById("course");
+const nextLecturer = document.getElementById("nextLecturer");
+const nextCourse = document.getElementById("nextCourse");
+const minutes = document.getElementById("minutes");
+
+const timer = document.getElementById("timer");
+const status = document.getElementById("status");
+const notice = document.getElementById("notice");
+const handover = document.getElementById("handover");
+
+let remaining = 50 * 60;
+let deadline = 0;
+let interval = null;
+let running = false;
+let warned = false;
+let ended = false;
+
+function displayTime() {
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+
+    timer.textContent =
+        String(mins).padStart(2, "0") + ":" +
+        String(secs).padStart(2, "0");
+}
+
+function updateNextLecture() {
+    document.getElementById("showNextLecturer").textContent =
+        nextLecturer.value.trim() || "Not set";
+
+    document.getElementById("showNextCourse").textContent =
+        nextCourse.value.trim() || "Not set";
+}
+
+function playSound() {
+    try {
+        const audio = new AudioContext();
+        const oscillator = audio.createOscillator();
+        const gain = audio.createGain();
+
+        oscillator.connect(gain);
+        gain.connect(audio.destination);
+        oscillator.frequency.value = 800;
+        gain.gain.value = 0.15;
+
+        oscillator.start();
+        oscillator.stop(audio.currentTime + 0.5);
+
+        oscillator.onended = () => audio.close();
+    } catch (error) {
+        console.log("Sound is unavailable.");
+    }
+}
+
+function alertUser(message) {
+    notice.textContent = message;
+    playSound();
+
+    if ("Notification" in window &&
+        Notification.permission === "granted") {
+        new Notification("Lecture Time Manager", {
+            body: message
+        });
+    }
+}
+
+function tick() {
+    remaining = Math.max(
+        0,
+        Math.ceil((deadline - Date.now()) / 1000)
+    );
+
+    displayTime();
+
+    if (remaining <= 300 && remaining > 0 && !warned) {
+        warned = true;
+        alertUser("Warning! Five minutes remain in this lecture.");
+    }
+
+    if (remaining === 0) {
+        clearInterval(interval);
+        interval = null;
+        running = false;
+        ended = true;
+
+        status.textContent = "Lecture time is over!";
+        handover.textContent =
+            "Time is up! " +
+            (nextLecturer.value.trim() || "The next lecturer") +
+            " should take over.";
+
+        alertUser(
+            "Lecture time is over. Next lecturer: " +
+            (nextLecturer.value.trim() || "Not specified") +
+            ". Course: " +
+            (nextCourse.value.trim() || "Not specified") +
+            ". Please take over the classroom."
+        );
+    }
+}
+
+document.getElementById("start").addEventListener("click", () => {
+    if (running) return;
+
+    if (!lecturer.value.trim() || !course.value.trim()) {
+        alert("Please enter the current lecturer and course.");
+        return;
+    }
+
+    if (ended || remaining <= 0) {
+        const duration = Number(minutes.value);
+
+        if (!Number.isFinite(duration) ||
+            duration < 1 || duration > 600) {
+            alert("Enter a duration between 1 and 600 minutes.");
+            return;
+        }
+
+        remaining = duration * 60;
+        warned = false;
+        ended = false;
+    }
+
+    updateNextLecture();
+
+    if ("Notification" in window &&
+        Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+
+    deadline = Date.now() + remaining * 1000;
+    running = true;
+    status.textContent = "Lecture in progress";
+    handover.textContent = "Waiting for the current lecture to finish.";
+    notice.textContent = "Lecture is running. Five-minute warning enabled.";
+
+    clearInterval(interval);
+    tick();
+    interval = setInterval(tick, 250);
+});
+
+document.getElementById("pause").addEventListener("click", () => {
+    if (!running) return;
+
+    tick();
+
+    if (!running) return;
+
+    clearInterval(interval);
+    interval = null;
+    running = false;
+    status.textContent = "Lecture paused";
+});
+
+document.getElementById("reset").addEventListener("click", () => {
+    clearInterval(interval);
+    interval = null;
+    running = false;
+    warned = false;
+    ended = false;
+
+    const duration = Number(minutes.value);
+    remaining = Number.isFinite(duration) &&
+        duration >= 1 && duration <= 600
+        ? duration * 60 : 50 * 60;
+
+    displayTime();
+    status.textContent = "Ready to start";
+    notice.textContent =
+        "The system will warn you when 5 minutes remain.";
+    handover.textContent =
+        "Waiting for the current lecture to finish.";
+});
+
+document.getElementById("notify").addEventListener("click", () => {
+    updateNextLecture();
+
+    alertUser(
+        "Handover test: " +
+        (nextLecturer.value.trim() || "Next lecturer") +
+        " is scheduled to teach " +
+        (nextCourse.value.trim() || "the next course") + "."
+    );
+});
+
+minutes.addEventListener("input", () => {
+    if (!running && !ended) {
+        const duration = Number(minutes.value);
+
+        if (Number.isFinite(duration) &&
+            duration >= 1 && duration <= 600) {
+            remaining = duration * 60;
+            displayTime();
+        }
+    }
+});
+
+nextLecturer.addEventListener("input", updateNextLecture);
+nextCourse.addEventListener("input", updateNextLecture);
+
+displayTime();
+updateNextLecture();
+</script>
+
+</body>
+</html>
